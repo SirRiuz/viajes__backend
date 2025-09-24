@@ -1,0 +1,48 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${DATABASE_USER:-}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-}
+    ports:
+      - ${DATABASE_PORT:-}:${DATABASE_PORT:-}
+    command: -p ${DATABASE_PORT:-}
+
+  web:
+    container_name: main_web
+    restart: always
+    command: python manage.py runserver 0.0.0.0:${SERVER_PORT:-}
+    tty: true
+    build:
+      context: .
+    expose:
+      - ${SERVER_PORT:-}
+    environment:
+      # Database config.
+      - POSTGRES_HOST=${DATABASE_HOST:-}
+      - POSTGRES_DB=${DATABASE_NAME:-}
+      - POSTGRES_USER=${DATABASE_USER:-}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-}
+
+      # Project config.
+      - SECRET_KEY=${SECRET_KEY:-}
+      - API_SECRET_KEY=${API_SECRET_KEY:-}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+    volumes:
+      - .:/app:Z
+    depends_on:
+      - postgres
+
+  nginx:
+    image: nginx_server
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+    ports:
+      - ${SERVER_PORT:-}:${SERVER_PORT:-}
+    depends_on:
+      - web
