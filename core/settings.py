@@ -44,14 +44,8 @@ API_SECRET_KEY = config("API_SECRET_KEY")
 ENCRYPTED_RESPONSE = config("ENCRYPTED_RESPONSE", default=False, cast=bool)
 SINGLE_REQUEST_PROTECT = config("SINGLE_REQUEST_PROTECT", default=False, cast=bool)
 
-# ALLOWED_HOSTS = ("*",)
-CORS_ALLOWED_ORIGINS = [
-    "https://example.com",
-    "https://sub.example.com",
-    "http://localhost:8080",
-    "http://127.0.0.1:9000",
-    "http://localhost:5173"
-]
+PARSED_CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="").split(",")
+CORS_ALLOWED_ORIGINS = PARSED_CORS_ALLOWED_ORIGINS
 
 # Application definition
 PROJECT_APPS = [
@@ -197,12 +191,11 @@ USE_I18N = True
 USE_TZ = True
 
 # Media
-AWS_ACCESS_KEY_ID = "e45620912c69abc48a3528e8c7aa1fa2"
-AWS_SECRET_ACCESS_KEY = "6277a335c221a318b0716be4b24b0a56009a49fc149b57b81363159f99787848"
-AWS_STORAGE_BUCKET_NAME = "front"
-AWS_S3_ENDPOINT_URL = "https://04a4598f6101084d054834d12337e4a2.r2.cloudflarestorage.com"
-AWS_S3_CUSTOM_DOMAIN = "track.thiup.com"
-
+AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_ENDPOINT_URL = config("AWS_S3_ENDPOINT_URL")
+AWS_S3_CUSTOM_DOMAIN = config("AWS_S3_CUSTOM_DOMAIN")
 
 STORAGES = {
     "default": {
@@ -212,12 +205,6 @@ STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
-
-
-# CLOUDFLARE_R2_BUCKET = "front"
-# CLOUDFLARE_R2_BUCKET_ENDPOINT = "https://04a4598f6101084d054834d12337e4a2.r2.cloudflarestorage.com"
-# CLOUDFLARE_R2_ACCESS_KEY = "e45620912c69abc48a3528e8c7aa1fa2"
-# CLOUDFLARE_R2_SECRET_KEY = "6277a335c221a318b0716be4b24b0a56009a49fc149b57b81363159f99787848"
 
 
 STATIC_ROOT = os.path.join(BASE_DIR, "static")

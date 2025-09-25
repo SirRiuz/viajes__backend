@@ -7,6 +7,7 @@ from django.conf.urls.static import static
 from rest_framework import permissions
 
 # Libs
+from apps.driver.views import upload_driver_documents
 from graphene_django.views import GraphQLView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -25,6 +26,7 @@ schema_view = get_schema_view(
     permission_classes=(permissions.IsAdminUser,),
 )
 
+
 urlpatterns = [
     path(
         "staff/tools/swagger/",
@@ -36,4 +38,5 @@ urlpatterns = [
     path("", include("apps.healthcheck.urls")),
     path("graphiql/", GraphQLView.as_view(graphiql=True)),
     path("graphql/", csrf_exempt(GraphQLView.as_view(graphiql=False))),
+    path("drivers/<str:driver_id>/upload-documents/", upload_driver_documents, name="upload-driver-documents"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

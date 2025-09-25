@@ -12,9 +12,25 @@ from graphene_django.types import DjangoObjectType
 class DriverType(DjangoObjectType):
 
     short_id = graphene.String()
+    dni_file_url = graphene.String()
+    license_pdf_file_url = graphene.String()
 
     def resolve_short_id(self, info):
         return self.id[: settings.SHORT_ID_SIZE]
+
+    def resolve_dni_file_url(self, info):
+        if self.dni_pdf:
+            request = info.context.build_absolute_uri
+            return request(self.dni_pdf.url)
+
+        return None
+
+    def resolve_license_pdf_file_url(self, info):
+        if self.license_pdf:
+            request = info.context.build_absolute_uri
+            return request(self.license_pdf.url)
+
+        return None
 
     class Meta:
         model = Driver

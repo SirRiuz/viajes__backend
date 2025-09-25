@@ -32,6 +32,14 @@ services:
       - API_SECRET_KEY=${API_SECRET_KEY:-}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+
+      # Media settings.
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-}
+      - AWS_S3_ENDPOINT_URL=${AWS_S3_ENDPOINT_URL:-}
+      - AWS_S3_CUSTOM_DOMAIN=${AWS_S3_CUSTOM_DOMAIN:-}
+
     volumes:
       - .:/app:Z
     depends_on:

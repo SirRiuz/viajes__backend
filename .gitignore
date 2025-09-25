@@ -14,3 +14,4 @@ htmlcov
 postgres
 .coverage
 *.sqlite3
+media/*

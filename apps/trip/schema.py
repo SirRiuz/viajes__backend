@@ -1,5 +1,6 @@
 # Libs
 import graphene
+from django.db.models import Q
 from django.conf import settings
 from graphql_jwt.decorators import login_required
 from apps.trip.types import TripType, TripPaginationType
@@ -125,9 +126,13 @@ class Query(graphene.ObjectType):
         id=graphene.String(required=True),
     )
 
+    get_recent_trips = graphene.List(TripType)
+
     get_trip_list = graphene.Field(
         TripPaginationType,
         page=graphene.Int(required=False),
+        prefix=graphene.String(required=False),
+        order=graphene.String(required=False),
     )
 
     @login_required
@@ -140,8 +145,32 @@ class Query(graphene.ObjectType):
         return Trip.objects.get(is_active=True, id=id)
 
     @login_required
-    def resolve_get_trip_list(root, info, page=1):
+    def resolve_get_recent_trips(root, info):
+        return Trip.objects.filter(is_active=True).order_by("-create_at")[:10]
+
+    @login_required
+    def resolve_get_trip_list(
+        root,
+        info,
+        page=1,
+        prefix=None,
+        order=None,
+    ):
         queryset = Trip.objects.filter(is_active=True).order_by("-create_at")
+
+        if prefix:
+            queryset = queryset.filter(
+                Q(driver__full_name__icontains=prefix)
+                | Q(id__icontains=prefix)
+                | Q(route__route_name__icontains=prefix)
+                | Q(vessel__name__icontains=prefix),
+            )
+
+        if order == "oldest":
+            queryset = queryset.order_by("create_at")
+        else:
+            queryset = queryset.order_by("-create_at")
+
         result = get_paginated_query(queryset, page)
         return TripPaginationType(
             results=result["results"],

@@ -8,26 +8,26 @@ run:
 	docker-compose up
 
 migrate:
-	docker compose run --rm web python manage.py migrate
+	docker-compose run --rm web python manage.py migrate
 
 test:
-	docker compose run --rm web coverage run  manage.py test
+	docker-compose run --rm web coverage run  manage.py test
 
 coverage:
-	docker compose run --rm web coverage html
+	docker-compose run --rm web coverage html
 
 shell:
-	docker compose run --rm web python manage.py shell
+	docker-compose run --rm web python manage.py shell
 
 startapp:
 	@$(eval APP_NAME := $(word 2,$(MAKECMDGOALS)))
-	docker compose run --rm web python manage.py startapp $(APP_NAME)
+	docker-compose run --rm web python manage.py startapp $(APP_NAME)
 
 migrations:
-	docker compose run --rm web python manage.py makemigrations
+	docker-compose run --rm web python manage.py makemigrations
 
 createsuperuser:
-	docker compose run --rm web python manage.py createsuperuser
+	docker-compose run --rm web python manage.py createsuperuser
 
 check:
-	docker compose run --rm web python manage.py check
+	docker-compose run --rm web python manage.py check
