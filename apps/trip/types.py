@@ -23,6 +23,10 @@ class TripType(DjangoObjectType):
     free_seats = graphene.List(graphene.Int)
     short_id = graphene.String()
     create_at = graphene.String()
+    create_at_time = graphene.String()
+
+    def resolve_create_at_time(self, info):
+        return self.create_at.strftime("%I:%M:%S %p")
 
     def resolve_create_at(self, info):
         return self.create_at.date()

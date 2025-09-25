@@ -69,8 +69,8 @@ class DeleteVessel(graphene.Mutation):
         except Vessel.DoesNotExist:
             return DeleteVessel(ok=False, error="Vessel not found")
 
-        vessel.delete()
-
+        vessel.is_active = False
+        vessel.save()
         return DeleteVessel(ok=True, error=None)
 
 

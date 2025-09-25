@@ -94,7 +94,9 @@ class DeleteRoute(graphene.Mutation):
         except Route.DoesNotExist:
             return DeleteRoute(success=False, message="Route not found")
 
-        route.delete()
+        route.is_active = False
+        route.save()
+
         return DeleteRoute(success=True, message="Route deleted successfully")
 
 

@@ -109,7 +109,9 @@ class DeleteDriver(graphene.Mutation):
             driver = Driver.objects.get(pk=id)
         except Driver.DoesNotExist:
             return DeleteDriver(ok=False, error="Driver not found")
-        driver.delete()
+
+        driver.is_active = False
+        driver.save()
         return DeleteDriver(ok=True, error=None)
 
 

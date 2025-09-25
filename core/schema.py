@@ -5,6 +5,7 @@ from apps.trip.schema import Mutation as TripMutation, Query as TripQuery
 from apps.tickets.schema import Mutation as TicketsMutation, Query as TicketsQuery
 from apps.route.schema import Mutation as RouteMutation, Query as RouteQuery
 from apps.vessel.schema import Query as VesselQuery, Mutation as VesselMutation
+from apps.accounts.schema import Query as AccountsQuery
 
 # Libs
 import graphene
@@ -16,6 +17,7 @@ class Query(
     TripQuery,
     RouteQuery,
     VesselQuery,
+    AccountsQuery,
     graphene.ObjectType,
 ):
     pass

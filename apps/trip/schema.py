@@ -163,8 +163,9 @@ class Query(graphene.ObjectType):
                 Q(driver__full_name__icontains=prefix)
                 | Q(id__icontains=prefix)
                 | Q(route__route_name__icontains=prefix)
-                | Q(vessel__name__icontains=prefix),
-            )
+                | Q(vessel__name__icontains=prefix)
+                | Q(ticket__client_id_number__icontains=prefix)
+            ).distinct()
 
         if order == "oldest":
             queryset = queryset.order_by("create_at")
