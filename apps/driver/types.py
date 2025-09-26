@@ -14,6 +14,7 @@ class DriverType(DjangoObjectType):
     short_id = graphene.String()
     dni_file_url = graphene.String()
     license_pdf_file_url = graphene.String()
+    signature_url = graphene.String()
 
     def resolve_short_id(self, info):
         return self.id[: settings.SHORT_ID_SIZE]
@@ -22,6 +23,13 @@ class DriverType(DjangoObjectType):
         if self.dni_pdf:
             request = info.context.build_absolute_uri
             return request(self.dni_pdf.url)
+
+        return None
+
+    def resolve_signature_url(self, info):
+        if self.signature:
+            request = info.context.build_absolute_uri
+            return request(self.signature.url)
 
         return None
 

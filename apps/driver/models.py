@@ -1,6 +1,5 @@
 # Django
 from django.db import models
-from django.conf import settings
 
 # Libs
 from apps.default.models.base_model import BaseModel
@@ -14,6 +13,7 @@ class Driver(BaseModel):
 
     dni_pdf = models.FileField(upload_to="drivers/dni/", null=True, blank=True)
     license_pdf = models.FileField(upload_to="drivers/license/", null=True, blank=True)
+    signature = models.FileField(upload_to="drivers/signature/", null=True, blank=True)
 
     def __str__(self):
         return self.full_name

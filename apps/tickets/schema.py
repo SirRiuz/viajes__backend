@@ -87,7 +87,7 @@ class CreateTicket(graphene.Mutation):
         trip_id = graphene.String(required=True)
         client_name = graphene.String(required=True)
         client_id_number = graphene.String(required=True)
-        client_email = graphene.String(required=True)
+        client_email = graphene.String(required=False)
         client_phone = graphene.String(required=True)
         seat_number = graphene.Int(required=True)
         payment_method = graphene.String(required=True)
