@@ -1,5 +1,6 @@
 # Django
 from django.db import models
+from django.db.models import Max
 
 # Libs
 from apps.default.models.base_model import BaseModel
@@ -30,6 +31,13 @@ class Ticket(BaseModel):
     )
 
     trip = models.ForeignKey(Trip, on_delete=models.CASCADE)
+    index = models.PositiveBigIntegerField(unique=True, editable=False, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.index is None:
+            last_index = Ticket.objects.aggregate(Max("index"))["index__max"] or 0
+            self.index = last_index + 1
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.id

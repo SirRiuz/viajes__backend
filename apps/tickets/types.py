@@ -13,14 +13,23 @@ from apps.trip.types import Trip
 class TicketType(DjangoObjectType):
 
     short_id = graphene.String()
+    create_at = graphene.String()
+    create_at_time = graphene.String()
 
     def resolve_short_id(self, info):
         return self.id[: settings.SHORT_ID_SIZE]
+
+    def resolve_create_at_time(self, info):
+        return self.create_at.strftime("%I:%M:%S %p")
+
+    def resolve_create_at(self, info):
+        return self.create_at.date()
 
     class Meta:
         model = Ticket
         fields = (
             "id",
+            "index",
             "created_at",
             "updated_at",
             "client_name",

@@ -54,6 +54,7 @@ class TripType(DjangoObjectType):
         model = Trip
         fields = (
             "id",
+            "index",
             "create_at",
             "update_at",
             "driver",
