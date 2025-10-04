@@ -131,6 +131,7 @@ if not "sqlite3" in DATABASE_ENGINE:
         "HOST": config("DATABASE_HOST"),
         "PORT": config("DATABASE_PORT"),
         "PASSWORD": config("DATABASE_PASSWORD"),
+        "OPTIONS": {"sslmode": "require"},
     }
 
 DATABASES = {
