@@ -186,6 +186,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "America/Bogota"
+USE_TZ = True
 
 USE_I18N = True
 
