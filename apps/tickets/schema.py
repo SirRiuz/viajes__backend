@@ -155,9 +155,7 @@ class DeleteTicket(graphene.Mutation):
         except Ticket.DoesNotExist:
             raise Exception("Ticket not found or already deleted")
 
-        ticket.is_active = False
-        ticket.save()
-
+        ticket.delete()
         return DeleteTicket(success=True, message="Ticket deleted successfully")
 
 

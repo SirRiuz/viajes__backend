@@ -15,6 +15,10 @@ class DriverType(DjangoObjectType):
     dni_file_url = graphene.String()
     license_pdf_file_url = graphene.String()
     signature_url = graphene.String()
+    full_name = graphene.String()
+
+    def resolve_full_name(self, info):
+        return self.full_name.capitalize()
 
     def resolve_short_id(self, info):
         return self.id[: settings.SHORT_ID_SIZE]

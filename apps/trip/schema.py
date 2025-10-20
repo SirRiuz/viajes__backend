@@ -60,9 +60,7 @@ class DeleteTrip(graphene.Mutation):
         except Trip.DoesNotExist:
             raise Exception("Trip not found or already deleted")
 
-        trip.is_active = False
-        trip.save()
-
+        trip.delete()
         return DeleteTrip(success=True, message="Trip deleted successfully")
 
 
