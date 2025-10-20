@@ -10,9 +10,13 @@ from apps.vessel.models import Vessel
 class VesselType(DjangoObjectType):
 
     short_id = graphene.String()
+    name = graphene.String()
 
     def resolve_short_id(self, info):
         return self.id[: settings.SHORT_ID_SIZE]
+
+    def resolve_name(self, info):
+        return self.name.capitalize()
 
     class Meta:
         model = Vessel
