@@ -19,6 +19,7 @@ class CreateTrip(graphene.Mutation):
         driver_id = graphene.String(required=True)
         route_id = graphene.String(required=True)
         vessel_id = graphene.String(required=True)
+        dispatcher = graphene.String(required=True)
 
     ok = graphene.Boolean()
     trip = graphene.Field(TripType)
@@ -26,27 +27,33 @@ class CreateTrip(graphene.Mutation):
 
     @staticmethod
     @login_required
-    def mutate(root, info, driver_id, route_id, vessel_id):
+    def mutate(
+        root,
+        info,
+        driver_id,
+        route_id,
+        vessel_id,
+        dispatcher,
+    ):
         try:
             driver = Driver.objects.get(is_active=True, id=driver_id)
-            route = Route.objects.get(is_active=True, id=route_id)
             vessel = Vessel.objects.get(is_active=True, id=vessel_id)
+            route = Route.objects.get(is_active=True, id=route_id)
         except Exception as e:
-            return CreateTrip(
-                ok=False,
-                trip=None,
-                error=str(e),
-            )
+            return CreateTrip(ok=False, error=str(e))
 
         trip = Trip.objects.create(
+            dispatcher=dispatcher,
             driver=driver,
-            route=route,
             vessel=vessel,
+            route=route,
         )
+
         return CreateTrip(ok=True, trip=trip, error=None)
 
 
 class DeleteTrip(graphene.Mutation):
+
     class Arguments:
         id = graphene.String(required=True)
 
@@ -65,11 +72,13 @@ class DeleteTrip(graphene.Mutation):
 
 
 class UpdateTrip(graphene.Mutation):
+
     class Arguments:
         id = graphene.String(required=True)
         driver_id = graphene.String(required=False)
         route_id = graphene.String(required=False)
         vessel_id = graphene.String(required=False)
+        dispatcher = graphene.String(required=False)
 
     ok = graphene.Boolean()
     trip = graphene.Field(TripType)
@@ -77,14 +86,21 @@ class UpdateTrip(graphene.Mutation):
 
     @staticmethod
     @login_required
-    def mutate(root, info, id, driver_id=None, route_id=None, vessel_id=None):
+    def mutate(
+        root,
+        info,
+        id,
+        driver_id=None,
+        route_id=None,
+        vessel_id=None,
+        dispatcher=False,
+    ):
         try:
             trip = Trip.objects.get(pk=id, is_active=True)
         except Trip.DoesNotExist:
             return UpdateTrip(ok=False, trip=None, error="Trip not found")
 
         if driver_id is not None:
-            print("driver_iddriver_iddriver_iddriver_iddriver_iddriver_iddriver_iddriver_id")
             try:
                 driver = Driver.objects.get(is_active=True, id=driver_id)
                 trip.driver = driver
@@ -92,7 +108,6 @@ class UpdateTrip(graphene.Mutation):
                 return UpdateTrip(ok=False, trip=None, error="Driver not found")
 
         if route_id is not None:
-            print("route_idroute_idroute_idroute_idroute_idroute_idroute_idroute_idroute_idroute_idroute_idroute_id")
             try:
                 route = Route.objects.get(is_active=True, id=route_id)
                 trip.route = route
@@ -100,12 +115,14 @@ class UpdateTrip(graphene.Mutation):
                 return UpdateTrip(ok=False, trip=None, error="Route not found")
 
         if vessel_id is not None:
-            print("vessel_idvessel_idvessel_idvessel_idvessel_idvessel_idvessel_idvessel_id")
             try:
                 vessel = Vessel.objects.get(is_active=True, id=vessel_id)
                 trip.vessel = vessel
             except Vessel.DoesNotExist:
                 return UpdateTrip(ok=False, trip=None, error="Vessel not found")
+
+        if dispatcher is not None:
+            trip.dispatcher = dispatcher
 
         trip.save()
         return UpdateTrip(ok=True, trip=trip, error=None)

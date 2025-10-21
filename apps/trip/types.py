@@ -60,6 +60,7 @@ class TripType(DjangoObjectType):
             "driver",
             "route",
             "vessel",
+            "dispatcher",
         )
 
 
