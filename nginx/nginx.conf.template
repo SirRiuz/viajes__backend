@@ -1,0 +1,232 @@
+# Viajes backend proxy. First wall against floods and slow clients: Django
+# only sees requests that passed these limits. Values are per client IP
+# ($binary_remote_addr: 4/16 bytes per entry, 10 MB ≈ 160k addresses).
+
+# --- Origin hidden behind Cloudflare -----------------------------------------
+# Scanners (Shodan, FOFA, Censys) probe every IPv4 address, and origin-finding
+# tools ask candidate IPs for the site with «Host: <domain>» to match the
+# answer. Connections that don't come from Cloudflare (or from this machine
+# and its private networks: Docker, the Cloudflare Tunnel container) are
+# closed without a single byte (444): no banner, page or header to correlate.
+# ORIGIN_ONLY_CLOUDFLARE = 0 in .env lifts the lock (an origin without
+# Cloudflare in front). Source of the ranges: https://www.cloudflare.com/ips/
+#
+# $realip_remote_addr is the address of the connection itself, before the
+# real-IP module below swaps in the visitor's.
+geo $realip_remote_addr $origin_lock {
+    default ${ORIGIN_ONLY_CLOUDFLARE};
+    173.245.48.0/20      0;
+    103.21.244.0/22      0;
+    103.22.200.0/22      0;
+    103.31.4.0/22        0;
+    141.101.64.0/18      0;
+    108.162.192.0/18     0;
+    190.93.240.0/20      0;
+    188.114.96.0/20      0;
+    197.234.240.0/22     0;
+    198.41.128.0/17      0;
+    162.158.0.0/15       0;
+    104.16.0.0/13        0;
+    104.24.0.0/14        0;
+    172.64.0.0/13        0;
+    131.0.72.0/22        0;
+    2400:cb00::/32       0;
+    2606:4700::/32       0;
+    2803:f800::/32       0;
+    2405:b500::/32       0;
+    2405:8100::/32       0;
+    2a06:98c0::/29       0;
+    2c0f:f248::/32       0;
+    127.0.0.0/8          0;
+    10.0.0.0/8           0;
+    172.16.0.0/12        0;
+    192.168.0.0/16       0;
+    ::1/128              0;
+    fc00::/7             0;
+}
+# Map keys ignore case: "false" also covers False/FALSE
+map $origin_lock $origin_denied {
+    "0"     0;
+    "false" 0;
+    default 1;
+}
+
+# --- Real client address ------------------------------------------------------
+# Without this every visitor would arrive with a Cloudflare address and share
+# its limits (and one abuser could get Cloudflare itself blacklisted). Only
+# Cloudflare and the private networks (the tunnel container) may set it.
+real_ip_header CF-Connecting-IP;
+real_ip_recursive on;
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+set_real_ip_from 103.22.200.0/22;
+set_real_ip_from 103.31.4.0/22;
+set_real_ip_from 141.101.64.0/18;
+set_real_ip_from 108.162.192.0/18;
+set_real_ip_from 190.93.240.0/20;
+set_real_ip_from 188.114.96.0/20;
+set_real_ip_from 197.234.240.0/22;
+set_real_ip_from 198.41.128.0/17;
+set_real_ip_from 162.158.0.0/15;
+set_real_ip_from 104.16.0.0/13;
+set_real_ip_from 104.24.0.0/14;
+set_real_ip_from 172.64.0.0/13;
+set_real_ip_from 131.0.72.0/22;
+set_real_ip_from 2400:cb00::/32;
+set_real_ip_from 2606:4700::/32;
+set_real_ip_from 2803:f800::/32;
+set_real_ip_from 2405:b500::/32;
+set_real_ip_from 2405:8100::/32;
+set_real_ip_from 2a06:98c0::/29;
+set_real_ip_from 2c0f:f248::/32;
+set_real_ip_from 127.0.0.0/8;
+set_real_ip_from 10.0.0.0/8;
+set_real_ip_from 172.16.0.0/12;
+set_real_ip_from 192.168.0.0/16;
+set_real_ip_from ::1/128;
+set_real_ip_from fc00::/7;
+
+# --- Rate and connection limits ----------------------------------------------
+limit_req_zone  $binary_remote_addr zone=api:10m      rate=15r/s;
+limit_req_zone  $binary_remote_addr zone=upload:1m    rate=2r/s;
+limit_req_zone  $binary_remote_addr zone=admin:1m     rate=10r/m;
+limit_req_zone  $binary_remote_addr zone=honeypot:1m  rate=5r/m;
+limit_conn_zone $binary_remote_addr zone=perip:10m;
+
+# Cloudflare terminates TLS and says so in X-Forwarded-Proto: keep its value
+# (Django marks cookies Secure and sends HSTS from it); $scheme otherwise.
+map $http_x_forwarded_proto $forwarded_proto {
+    default $http_x_forwarded_proto;
+    ""      $scheme;
+}
+
+upstream django_backend {
+    server ${UPSTREAM_HOST}:${UPSTREAM_PORT};
+    keepalive 16;
+}
+
+server {
+    listen ${SERVER_PORT};
+    server_name _;
+    server_tokens off;
+
+    # Not from Cloudflare: close the connection, no answer at all
+    if ($origin_denied) {
+        return 444;
+    }
+
+    # --- Slow and oversized clients (Slowloris, huge bodies) -------------
+    client_header_timeout 10s;
+    client_body_timeout   15s;
+    send_timeout          20s;
+    keepalive_timeout     30s;
+    keepalive_requests    200;
+    large_client_header_buffers 4 8k;
+    # GraphQL bodies are a few KB; driver documents have their own location
+    client_max_body_size  1m;
+
+    limit_conn perip 30;
+    limit_req_status  429;
+    limit_conn_status 429;
+
+    # Only what the API and the admin use (OPTIONS: CORS preflight)
+    if ($request_method !~ ^(GET|HEAD|POST|OPTIONS)$) {
+        return 405;
+    }
+
+    # --- Compression (JSON answers shrink ~5–10×) --------------------------
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_vary on;
+    gzip_types application/json application/javascript text/css text/plain image/svg+xml;
+
+    # --- Headers -------------------------------------------------------------
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+    proxy_hide_header X-Powered-By;
+    # «Allow: GET, HEAD, OPTIONS» on every answer is Django REST framework's
+    proxy_hide_header Allow;
+    # Set once here (Django sends them too)
+    proxy_hide_header X-Frame-Options;
+    proxy_hide_header X-Content-Type-Options;
+    proxy_hide_header Referrer-Policy;
+
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_redirect off;
+    # $http_host (not $host) keeps the client's port in redirects
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    proxy_connect_timeout 5s;
+    proxy_send_timeout    30s;
+    proxy_read_timeout    30s;
+
+    # Hidden files (.env, .git…) never, whatever the app does
+    location ~ /\. {
+        return 404;
+    }
+
+    # Scanners looking for PHP/ASP apps: drop the connection, no answer
+    location ~* \.(?:php|asp|aspx|jsp|cgi)$ {
+        return 444;
+    }
+
+    # Driver documents kept on local disk (USE_AWS_STORAGE_SYSTEM off): only
+    # documents and images, straight from disk. With the bucket on they are
+    # served by the CDN and this folder stays empty.
+    location ~* ^/media/(.+\.(?:pdf|jpe?g|png|webp|gif))$ {
+        alias /srv/media/$1;
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+    location /media/ {
+        return 404;
+    }
+
+    # Admin assets (collectstatic in the migration service)
+    location /static/ {
+        alias /srv/static/;
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800" always;
+    }
+
+    # Driver documents (PDF scans, signature): bigger bodies, slower clients,
+    # few requests. The file goes on to the bucket from Django.
+    location ~ ^/drivers/[^/]+/upload-documents/$ {
+        client_max_body_size 80m;
+        client_body_timeout  60s;
+        proxy_send_timeout   60s;
+        proxy_read_timeout   60s;
+        limit_req zone=upload burst=10 nodelay;
+        proxy_pass http://django_backend;
+    }
+
+    # Admin log-in: 10 tries a minute per address (Django adds its own cap)
+    location = /${INTERNAL_ADMIN_URL}login/ {
+        limit_req zone=admin burst=5 nodelay;
+        proxy_pass http://django_backend;
+    }
+
+    location ^~ /${INTERNAL_ADMIN_URL} {
+        limit_req zone=api burst=30 nodelay;
+        proxy_pass http://django_backend;
+    }
+
+    # Fake /admin/ (honeypot): every POST is a database row, keep bots slow
+    location ^~ /admin/ {
+        limit_req zone=honeypot burst=5 nodelay;
+        proxy_pass http://django_backend;
+    }
+
+    location / {
+        limit_req zone=api burst=40 nodelay;
+        proxy_pass http://django_backend;
+    }
+}

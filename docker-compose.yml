@@ -1,56 +1,120 @@
-version: '3'
+# Local development stack. Production: ci/docker-compose.yml (Granian).
+# Both read the same .env: Django from the mounted project folder, Compose
+# for the ${...} values here. Only what differs per service is set below.
 
 services:
+  # Local PostgreSQL, only with COMPOSE_PROFILES = "local-db" in .env (the
+  # default of .env.template). Without it the database is the one in .env
+  # (e.g. Neon) and this service doesn't run. The production stack runs the
+  # same service on the same volume: both modes see the same data.
   postgres:
     image: postgres:15
+    profiles: ["local-db"]
     restart: unless-stopped
+    container_name: "${APP_NAME:-viajes}_postgres"
     environment:
-      - POSTGRES_USER=${DATABASE_USER:-}
-      - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-}
+      - POSTGRES_USER=${DATABASE_USER:-postgres}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-postgres}
     ports:
-      - ${DATABASE_PORT:-}:${DATABASE_PORT:-}
-    command: -p ${DATABASE_PORT:-}
+      - ${DATABASE_PORT:-5432}:${DATABASE_PORT:-5432}
+    # Sized for a small machine (1–2 GB RAM, SSD). The app opens few
+    # connections (2 Granian workers × 4 threads, persistent): 40 is plenty.
+    command: >
+      -p ${DATABASE_PORT:-5432}
+      -c max_connections=40
+      -c shared_buffers=128MB
+      -c effective_cache_size=384MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=100
+      -c wal_buffers=4MB
+      -c idle_in_transaction_session_timeout=30000
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres} -p ${DATABASE_PORT:-5432}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  web:
-    container_name: main_web
-    restart: always
-    command: python manage.py runserver 0.0.0.0:${SERVER_PORT:-}
-    tty: true
+  migration:
+    container_name: "${APP_NAME:-viajes}_migration"
     build:
       context: .
-    expose:
-      - ${SERVER_PORT:-}
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    # adopt_legacy_schema: one-time move of a database from the old apps/*
+    # layout (no-op otherwise). Locally it also generates the migrations.
+    command: sh -c "python manage.py makemigrations --noinput && python manage.py adopt_legacy_schema && python manage.py migrate --noinput && python manage.py collectstatic --noinput -v 0"
     environment:
-      # Database config.
-      - POSTGRES_HOST=${DATABASE_HOST:-}
-      - POSTGRES_DB=${DATABASE_NAME:-}
-      - POSTGRES_USER=${DATABASE_USER:-}
-      - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-}
-
-      # Project config.
-      - SECRET_KEY=${SECRET_KEY:-}
-      - API_SECRET_KEY=${API_SECRET_KEY:-}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-}
-      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
-
-      # Media settings.
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-}
-      - AWS_S3_ENDPOINT_URL=${AWS_S3_ENDPOINT_URL:-}
-      - AWS_S3_CUSTOM_DOMAIN=${AWS_S3_CUSTOM_DOMAIN:-}
-
+      - DATABASE_STATEMENT_TIMEOUT_MS=0
     volumes:
       - .:/app:Z
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+        required: false
 
-  nginx:
-    image: nginx_server
+  web:
+    container_name: "${APP_NAME:-viajes}_django"
+    restart: always
+    command: python manage.py runserver 0.0.0.0:8080
+    tty: true
     build:
       context: .
-      dockerfile: ./nginx/Dockerfile
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    expose:
+      - 8080
+    environment:
+      # Shared cache (rate limits, honeypot blacklist) on Valkey
+      - CACHE_URL=${CACHE_URL:-redis://valkey:6379/0}
+    volumes:
+      - .:/app:Z
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+      migration:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+
+  valkey:
+    image: valkey/valkey:9.0.6-alpine
+    restart: unless-stopped
+    container_name: "${APP_NAME:-viajes}_valkey"
+    # Only short-lived keys (rate limits, caches): no disk, 32 MB at most,
+    # least recently used keys go first when full.
+    command: valkey-server --save "" --appendonly no --loglevel warning --maxmemory 32mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  nginx:
+    image: nginx:1.28.0-alpine
+    container_name: "${APP_NAME:-viajes}_nginx"
+    restart: unless-stopped
     ports:
-      - ${SERVER_PORT:-}:${SERVER_PORT:-}
+      - ${SERVER_PORT:-8080}:${SERVER_PORT:-8080}
+    environment:
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - UPSTREAM_HOST=web
+      - UPSTREAM_PORT=8080
+      - INTERNAL_ADMIN_URL=${INTERNAL_ADMIN_URL:-staff/tools/}
+      - ORIGIN_ONLY_CLOUDFLARE=${ORIGIN_ONLY_CLOUDFLARE:-1}
+      # Only these variables are substituted in the template (nginx's own
+      # $variables stay as they are)
+      - NGINX_ENVSUBST_FILTER=^(SERVER_PORT|UPSTREAM_HOST|UPSTREAM_PORT|INTERNAL_ADMIN_URL|ORIGIN_ONLY_CLOUDFLARE)$$
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./static:/srv/static:ro
+      - ./media:/srv/media:ro
     depends_on:
       - web
+
+volumes:
+  # Fixed name, shared with ci/docker-compose.yml (they never run together)
+  postgres_data:
+    name: "${APP_NAME:-viajes}_postgres_data"

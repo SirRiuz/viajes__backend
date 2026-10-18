@@ -1,0 +1,36 @@
+# Django and Core
+django==6.1.2
+djangorestframework==3.18.3
+django-cors-headers==4.9.0
+django-storages[s3]==1.14.6
+django-cleanup==9.0.0
+django-graphql-jwt==0.4.0
+drf-yasg==1.21.18
+
+# GraphQL
+graphene-django==3.2.3
+
+# Database (C build: faster than the pure-Python one)
+psycopg[c]==3.3.6
+
+# Shared cache (Valkey): rate limits and the honeypot blacklist for every worker
+redis==8.1.0
+
+# Production server (Dockerfile): Rust HTTP server with a WSGI interface
+granian==2.8.4
+
+# Auth & Security
+pyjwt==2.15.1
+pycryptodome==3.24.1
+
+# AWS
+boto3==1.43.114
+
+# Utilities
+python-decouple==3.8
+
+# Testing
+pytest==9.1.1
+pytest-django==4.14.0
+pytest-cov==7.1.0
+coverage==7.16.2
