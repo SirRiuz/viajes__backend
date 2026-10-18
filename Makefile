@@ -1,33 +1,93 @@
-build:
-	docker-compose build
+DC := scripts/docker-compose.sh
+# Production stack (Granian + nginx + valkey). Dev and prod read the same .env.
+PROD := $(DC) -p viajes -f ci/docker-compose.yml --env-file .env
 
-up:
-	docker-compose up
+# Primer uso: crea .env desde .env.template con claves aleatorias
+.env:
+	scripts/init-env.sh
 
-run:
-	docker-compose up
+# Dev y prod usan los mismos puertos: arrancar uno detiene el otro. `stop`
+# (no `down`) conserva sus contenedores y datos para volver despues.
+build: .env
+	$(DC) build
 
-migrate:
-	docker-compose run --rm web python manage.py migrate
+# media/ la crea el usuario (no root, como haria Docker al montarla en nginx)
+up: .env
+	-@$(PROD) stop 2>/dev/null
+	@mkdir -p media
+	$(DC) up
 
-test:
-	docker-compose run --rm web coverage run  manage.py test
+run: up
 
-coverage:
-	docker-compose run --rm web coverage html
+stop:
+	$(DC) stop
+
+# Las migraciones se aplican automaticamente en `make up`/`make run`
+# (servicio "migration" en docker-compose.yml, web espera a que termine).
+# Este target es un atajo manual para cuando el stack ya esta arriba
+# y solo quieres aplicar migraciones nuevas sin reiniciar todo.
+migrate: .env
+	$(DC) up migration --build
+
+dependencies:
+	$(DC) run --rm --no-deps web sh -c "pip-compile --no-emit-index-url requirements.in"
+
+test: .env
+	$(DC) run --rm web py.test --no-migrations
+
+test-html-cov-report:
+	$(DC) run --rm web py.test --no-migrations --cov=. --cov-report=html
 
 shell:
-	docker-compose run --rm web python manage.py shell
+	$(DC) run --rm web python manage.py shell
+
+bash:
+	$(DC) run --rm web bash
 
 startapp:
 	@$(eval APP_NAME := $(word 2,$(MAKECMDGOALS)))
-	docker-compose run --rm web python manage.py startapp $(APP_NAME)
+	$(DC) run --rm web python manage.py startapp $(APP_NAME)
 
-migrations:
-	docker-compose run --rm web python manage.py makemigrations
+# --no-deps: makemigrations solo lee modelos y archivos en disco, no toca la
+# DB. Sin esto, arrancar "web" arrastraria al servicio "migration" (que
+# necesita migraciones ya generadas para poder aplicarlas) creando un
+# huevo-y-gallina en un clone nuevo, ya que las migraciones no van en git.
+migrations: .env
+	$(DC) run --rm --no-deps web python manage.py makemigrations
 
 createsuperuser:
-	docker-compose run --rm web python manage.py createsuperuser
+	$(DC) run --rm web python manage.py createsuperuser
 
 check:
-	docker-compose run --rm web python manage.py check
+	$(DC) run --rm web python manage.py check
+
+# --- Produccion (ci/docker-compose.yml) -------------------------------------
+# Primer despliegue tras el refactor: `make prod-migrations` y luego
+# `make prod-up` (el servicio "migration" adopta las tablas existentes).
+# En una maquina de desarrollo funciona igual, con el mismo .env: `make
+# prod-up` y `make up` alternan entre los dos modos.
+prod-build:
+	$(PROD) build
+
+prod-up: .env
+	-@$(DC) stop 2>/dev/null
+	@mkdir -p media
+	$(PROD) up -d --build
+
+prod-stop:
+	$(PROD) stop
+
+prod-down:
+	$(PROD) down
+
+prod-logs:
+	$(PROD) logs -f --tail=200
+
+prod-migrations:
+	$(PROD) run --rm --no-deps web python manage.py makemigrations
+
+prod-migrate:
+	$(PROD) up migration --build
+
+prod-check:
+	$(PROD) run --rm --no-deps web python manage.py check --deploy
