@@ -121,6 +121,6 @@ Además:
 - [ ] Copia de seguridad de la base de datos antes del primer despliegue.
 - [ ] `SECRET_KEY` ≥ 50 caracteres aleatorios, `ALLOWED_HOSTS` y `CORS_ALLOWED_ORIGINS` con los hosts reales (`DEBUG` ya va forzado a `False`).
 - [ ] `APP_UID`/`APP_GID` del dueño de la carpeta del proyecto.
-- [ ] `make prod-migrations` y luego `make prod-up` (adopta las tablas existentes).
+- [ ] `make prod-up` (genera y aplica las migraciones; adopta las tablas existentes).
 - [ ] Si se sale de Cloudflare o se añade otro proxy, revisar `set_real_ip_from` y `TRUSTED_PROXY_COUNT`.
 - [ ] Cloudflare: «Always Use HTTPS» activo (Django no redirige a HTTPS por su cuenta).
