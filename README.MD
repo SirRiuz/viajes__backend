@@ -30,8 +30,8 @@ threads, `GRANIAN_*` in the Dockerfile) behind nginx, Valkey as shared cache.
 Same `.env`; `DEBUG` is forced off, so GraphiQL (`/graphiql/`), Swagger and
 introspection don't exist there. They work locally with `DEBUG = True`.
 
-1. `make prod-migrations`
-2. `make prod-up` (the `migration` service runs before `web`)
+`make prod-up`: the `migration` service generates the migrations (they are
+not in git), applies them and only then starts `web`.
 
 `make prod-logs`, `make prod-down`, `make prod-check` (`check --deploy`).
 
@@ -61,7 +61,7 @@ does nothing on a fresh or already adopted database. Steps:
    signs users out once.
 3. `APP_UID`/`APP_GID` = `id -u`/`id -g` of the folder owner (the
    containers no longer run as root).
-4. `make prod-migrations && make prod-up`.
+4. `make prod-up`.
 
 #### Hiding the server behind Cloudflare
 

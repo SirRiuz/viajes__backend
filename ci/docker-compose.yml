@@ -57,7 +57,11 @@ services:
     build:
       context: ..
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
-    command: sh -c "python manage.py adopt_legacy_schema && python manage.py migrate --noinput && python manage.py collectstatic --noinput -v 0"
+    # Migrations are not in git: they are generated here from the models
+    # (same as `make prod-migrations`), then adopt_legacy_schema (one-time
+    # move of a database from the old apps/* layout, no-op otherwise) and
+    # migrate apply them.
+    command: sh -c "python manage.py makemigrations --noinput && python manage.py adopt_legacy_schema && python manage.py migrate --noinput && python manage.py collectstatic --noinput -v 0"
     environment:
       <<: *production
       DATABASE_STATEMENT_TIMEOUT_MS: "0"

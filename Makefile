@@ -62,8 +62,9 @@ check:
 	$(DC) run --rm web python manage.py check
 
 # --- Produccion (ci/docker-compose.yml) -------------------------------------
-# Primer despliegue tras el refactor: `make prod-migrations` y luego
-# `make prod-up` (el servicio "migration" adopta las tablas existentes).
+# `make prod-up` genera y aplica las migraciones (servicio "migration") y,
+# en el primer despliegue tras el refactor, adopta las tablas existentes.
+# `make prod-migrations` solo las genera, para revisarlas antes.
 # En una maquina de desarrollo funciona igual, con el mismo .env: `make
 # prod-up` y `make up` alternan entre los dos modos.
 prod-build:
