@@ -72,4 +72,24 @@ Recommended on the server: a Cloudflare Tunnel (`COMPOSE_PROFILES` with
 all. Details and the steps outside the code (new server IP, DNS records) in
 `SECURITY.md`.
 
+#### Cloudflare Tunnel (no open port on the server)
+
+1. Cloudflare dashboard → Zero Trust → Networks → Tunnels → Create a tunnel
+   (Cloudflared). Copy its token.
+2. In the server's `.env`: `COMPOSE_PROFILES = "tunnel"` (or
+   `"local-db,tunnel"`), `TUNNEL_TOKEN = "<token>"`, `NGINX_BIND = "127.0.0.1"`.
+3. `make prod-up`. The tunnel shows as *Healthy* in the dashboard.
+4. In the tunnel: Public hostname → `backend.transhidrosogamoso.com`, service
+   `HTTP` → `nginx:<SERVER_PORT>` (e.g. `nginx:8080`). Cloudflare replaces
+   the old DNS record with one pointing at the tunnel.
+5. Close every inbound port but SSH in the provider's firewall.
+
+#### Several sites on one server
+
+Each site is its own folder with its own `.env`: a different `APP_NAME` (the
+Compose project, containers, network and volume take it), a different
+`NGINX_HOST_PORT` and its own `TUNNEL_TOKEN`, which may come from a different
+Cloudflare account. Sites share no network or volume, and each web container
+is capped at `WEB_MEM_LIMIT`.
+
 See `SECURITY.md` for the security and performance changes.
