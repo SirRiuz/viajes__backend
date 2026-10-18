@@ -1,6 +1,7 @@
 DC := scripts/docker-compose.sh
 # Production stack (Granian + nginx + valkey). Dev and prod read the same .env.
-PROD := $(DC) -p viajes -f ci/docker-compose.yml --env-file .env
+# Its Compose project is named after APP_NAME (several sites on one server).
+PROD := $(DC) -f ci/docker-compose.yml --env-file .env
 
 # Primer uso: crea .env desde .env.template con claves aleatorias
 .env:

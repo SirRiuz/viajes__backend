@@ -109,6 +109,10 @@ server {
     listen ${SERVER_PORT};
     server_name _;
     server_tokens off;
+    # nginx's own redirects (e.g. /staff/tools → /staff/tools/) as relative
+    # paths: an absolute one would carry nginx's port and scheme (:8080,
+    # http) instead of the visitor's, behind Cloudflare and the tunnel
+    absolute_redirect off;
 
     # Not from Cloudflare: close the connection, no answer at all
     if ($origin_denied) {

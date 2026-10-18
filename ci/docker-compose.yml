@@ -7,6 +7,14 @@
 # the local `postgres` service with COMPOSE_PROFILES = "local-db".
 # Containers are named *_prod_* so this stack and the dev one never clash;
 # the Makefile stops one before starting the other (same ports).
+#
+# Several sites on one server: each project has its own APP_NAME (Compose
+# project, containers, network and volume are named after it), its own
+# NGINX_HOST_PORT and, behind Cloudflare, its own tunnel and token, which may
+# belong to different Cloudflare accounts. Sites share nothing: separate
+# networks, and each web container is capped at WEB_MEM_LIMIT.
+
+name: ${APP_NAME:-viajes}
 
 # DEBUG is forced off here, whatever .env says: no debug pages, GraphiQL,
 # Swagger nor introspection in production (an environment variable wins over
@@ -83,6 +91,9 @@ services:
     # Image CMD: granian (Dockerfile sets the rest of its GRANIAN_* options)
     expose:
       - 8080
+    # One site can't take the RAM of the others (Granian also recycles a
+    # worker past 320 MiB)
+    mem_limit: ${WEB_MEM_LIMIT:-768m}
     environment:
       <<: *production
       CACHE_URL: ${CACHE_URL:-redis://valkey:6379/0}
@@ -121,8 +132,10 @@ services:
     restart: unless-stopped
     mem_limit: 64m
     # NGINX_BIND = 127.0.0.1 with the tunnel: nothing listens on the internet
+    # (the tunnel reaches nginx inside the project's network). NGINX_HOST_PORT:
+    # a different one per site when several run on the same server.
     ports:
-      - ${NGINX_BIND:-0.0.0.0}:${SERVER_PORT:-80}:${SERVER_PORT:-80}
+      - ${NGINX_BIND:-0.0.0.0}:${NGINX_HOST_PORT:-${SERVER_PORT:-80}}:${SERVER_PORT:-80}
     environment:
       - SERVER_PORT=${SERVER_PORT:-80}
       - UPSTREAM_HOST=web
